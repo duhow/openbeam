@@ -1,3 +1,28 @@
 <resources>
-    <string name="app_name">My App</string>
+    <string name="app_name">OpenBeam</string>
+
+    <!-- Missatges d\'estat -->
+    <string name="status_waiting_nfc">Acosta\'l a un altre dispositiu</string>
+    <string name="status_scanning_qr">Cercant codi QR…</string>
+    <string name="status_writing">Escrivint…</string>
+    <string name="status_done">Fet!</string>
+    <string name="status_error">Alguna cosa ha anat malament</string>
+    <string name="status_unsupported">Tipus de contingut no compatible</string>
+    <string name="status_nfc_unavailable">NFC no disponible</string>
+    <string name="status_discovering_peers">Cercant dispositius propers…</string>
+    <string name="status_no_peers">No s\'han trobat dispositius</string>
+    <string name="status_connecting">Connectant…</string>
+    <string name="status_transferring">Transferint…</string>
+    <string name="status_wifi_unavailable">Wi-Fi Direct no disponible</string>
+
+    <!-- Pistes -->
+    <string name="hint_tap_device">Toca la part del darrere d\'un altre dispositiu per compartir</string>
+    <string name="hint_nfc_unavailable">Activa el NFC a Configuració</string>
+    <string name="hint_wifi_direct">Assegura\'t que l\'altre dispositiu també té OpenBeam obert</string>
+
+    <!-- Botons -->
+    <string name="btn_cancel">Cancel·la</string>
+
+    <!-- Accessibilitat -->
+    <string name="cd_share_icon">Icona del mètode de compartició</string>
 </resources>

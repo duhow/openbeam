@@ -1,13 +1,5 @@
 # Agents Notes
 
-## IMPORTANT: To start
-
-This repo is now a blank template to begin with a Kotlin project.
-To facilitate the setup, there are some preloaded configurations defined, but
-you still must create the required missing files, such as MainActivity, XML.
-If you know it, change the Application name (MyApp) in `settings.gradle`, `build.gradle`, `Appfile`, XML and README.
-Once the base code is established, erase this section "To start" from `AGENTS.md`.
-
 ## Commits
 
 Use Conventional Commits in PR title. Common types are feat, fix, chore, refactor, perf, ci, docs.
@@ -24,9 +16,9 @@ Check historic commits to avoid making up new scopes every time.
 
 ## IMPORTANT: Layout changes
 
-- `activity_main.xml` exists in **both**:
-  - `app/src/main/res/layout/activity_main.xml` (portrait/default)
-  - `app/src/main/res/layout-land/activity_main.xml` (landscape/horizontal)
+- `activity_share.xml` exists in **both**:
+  - `app/src/main/res/layout/activity_share.xml` (portrait/default)
+  - `app/src/main/res/layout-land/activity_share.xml` (landscape/horizontal)
 - Any layout modification to this screen **must be applied in both files**.
 - Treat portrait and landscape as a paired change to avoid regressions/crashes in horizontal mode.
 

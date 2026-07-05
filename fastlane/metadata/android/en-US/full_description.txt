@@ -1,1 +1,7 @@
-Full description of app.
+OpenBeam revives the Android Beam tap-to-share experience on Android 8.0 and newer – no Google Play Services required.
+
+Select "OpenBeam" from the system share sheet to share URLs, contacts, or images with other nearby devices.
+
+For URLs and contacts, simply tap your phone against an NFC tag to write the data. For images, OpenBeam first scans for a QR code: if one is found, the decoded content (URL or Wi-Fi credentials) is written to an NFC tag. If no QR code is present, the file is transferred over Wi-Fi Direct.
+
+OpenBeam does not appear in the app drawer and runs only when you explicitly share through it.

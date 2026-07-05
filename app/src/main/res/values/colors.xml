@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand colors -->
+    <color name="openbeam_primary">#1565C0</color>
+    <color name="openbeam_primary_variant">#003C8F</color>
+    <color name="openbeam_secondary">#29B6F6</color>
+    <color name="openbeam_on_primary">#FFFFFF</color>
+
+    <!-- Dialog -->
+    <color name="dialog_background">#FF1E1E1E</color>
+    <color name="dialog_text_primary">#FFFFFFFF</color>
+    <color name="dialog_text_secondary">#FFBBBBBB</color>
+</resources>
