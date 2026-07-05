@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.Window
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.ProgressBar
@@ -79,10 +80,10 @@ class ShareActivity : AppCompatActivity() {
     private var lastErrorDetail: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must be called before super.onCreate() to suppress the window title bar that the
+        // Dialog theme renders outside/above the dialog box.
+        supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
-        // The Dialog theme may still show an AppCompat action bar as an outer title;
-        // hide it so only the tv_app_name inside the dialog box is visible.
-        supportActionBar?.hide()
         setContentView(R.layout.activity_share)
 
         tvStatus = findViewById(R.id.tv_status)
