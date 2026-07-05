@@ -14,15 +14,23 @@
     <string name="status_connecting">Connectant…</string>
     <string name="status_transferring">Transferint…</string>
     <string name="status_wifi_unavailable">Wi-Fi Direct no disponible</string>
+    <string name="status_permission_needed">Cal un permís</string>
+    <string name="status_permission_denied">Permís denegat</string>
 
     <!-- Pistes -->
     <string name="hint_tap_device">Toca la part del darrere d\'un altre dispositiu per compartir</string>
     <string name="hint_nfc_unavailable">Activa el NFC a Configuració</string>
     <string name="hint_wifi_direct">Assegura\'t que l\'altre dispositiu també té OpenBeam obert</string>
+    <string name="hint_permission_wifi">OpenBeam necessita el permís de Dispositius Wi-Fi propers (o Ubicació) per trobar dispositius</string>
+    <string name="hint_permission_denied">Ves a Configuració → Aplicacions → OpenBeam → Permisos i concedeix el permís necessari</string>
 
     <!-- Botons -->
     <string name="btn_cancel">Cancel·la</string>
+    <string name="btn_copy_debug">Copia la info de depuració</string>
 
     <!-- Accessibilitat -->
     <string name="cd_share_icon">Icona del mètode de compartició</string>
+
+    <!-- Diagnòstic -->
+    <string name="debug_info_copied">Info de diagnòstic copiada — enganxa-la a l\'informe d\'error</string>
 </resources>

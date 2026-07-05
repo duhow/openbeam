@@ -14,15 +14,23 @@
     <string name="status_connecting">Connecting…</string>
     <string name="status_transferring">Transferring…</string>
     <string name="status_wifi_unavailable">Wi-Fi Direct not available</string>
+    <string name="status_permission_needed">Permission needed</string>
+    <string name="status_permission_denied">Permission denied</string>
 
     <!-- Hints -->
     <string name="hint_tap_device">Tap the back of another device to share</string>
     <string name="hint_nfc_unavailable">Please enable NFC in Settings</string>
     <string name="hint_wifi_direct">Make sure the other device also has OpenBeam open</string>
+    <string name="hint_permission_wifi">OpenBeam needs the Nearby Wi-Fi Devices (or Location) permission to find nearby devices</string>
+    <string name="hint_permission_denied">Go to Settings → Apps → OpenBeam → Permissions and grant the required permission</string>
 
     <!-- Buttons -->
     <string name="btn_cancel">Cancel</string>
+    <string name="btn_copy_debug">Copy debug info</string>
 
     <!-- Accessibility -->
     <string name="cd_share_icon">Share method icon</string>
+
+    <!-- Diagnostics -->
+    <string name="debug_info_copied">Diagnostic info copied — paste it in your bug report</string>
 </resources>

@@ -14,15 +14,23 @@
     <string name="status_connecting">Conectando…</string>
     <string name="status_transferring">Transfiriendo…</string>
     <string name="status_wifi_unavailable">Wi-Fi Direct no disponible</string>
+    <string name="status_permission_needed">Permiso necesario</string>
+    <string name="status_permission_denied">Permiso denegado</string>
 
     <!-- Sugerencias -->
     <string name="hint_tap_device">Toca la parte trasera de otro dispositivo para compartir</string>
     <string name="hint_nfc_unavailable">Activa el NFC en Ajustes</string>
     <string name="hint_wifi_direct">Asegúrate de que el otro dispositivo también tiene OpenBeam abierto</string>
+    <string name="hint_permission_wifi">OpenBeam necesita el permiso de Dispositivos Wi-Fi cercanos (o Ubicación) para encontrar dispositivos</string>
+    <string name="hint_permission_denied">Ve a Ajustes → Aplicaciones → OpenBeam → Permisos y concede el permiso necesario</string>
 
     <!-- Botones -->
     <string name="btn_cancel">Cancelar</string>
+    <string name="btn_copy_debug">Copiar info de depuración</string>
 
     <!-- Accesibilidad -->
     <string name="cd_share_icon">Icono del método de compartición</string>
+
+    <!-- Diagnóstico -->
+    <string name="debug_info_copied">Info de diagnóstico copiada — pégala en tu informe de error</string>
 </resources>

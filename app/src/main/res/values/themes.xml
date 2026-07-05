@@ -2,17 +2,15 @@
 <resources>
 
     <!-- Base application theme – required but the app has no launcher -->
-    <style name="Theme.OpenBeam" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.OpenBeam" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/openbeam_primary</item>
-        <item name="colorPrimaryVariant">@color/openbeam_primary_variant</item>
         <item name="colorOnPrimary">@color/openbeam_on_primary</item>
         <item name="colorSecondary">@color/openbeam_secondary</item>
     </style>
 
     <!-- Dialog-style theme for ShareActivity: transparent background, dialog window -->
-    <style name="Theme.OpenBeam.Dialog" parent="Theme.MaterialComponents.DayNight.Dialog">
+    <style name="Theme.OpenBeam.Dialog" parent="Theme.Material3.DayNight.Dialog">
         <item name="colorPrimary">@color/openbeam_primary</item>
-        <item name="colorPrimaryVariant">@color/openbeam_primary_variant</item>
         <item name="colorOnPrimary">@color/openbeam_on_primary</item>
         <item name="colorSecondary">@color/openbeam_secondary</item>
         <item name="android:windowBackground">@android:color/transparent</item>
@@ -25,18 +23,18 @@
     </style>
 
     <!-- Text styles -->
-    <style name="TextAppearance.OpenBeam.Title" parent="TextAppearance.MaterialComponents.Headline6">
+    <style name="TextAppearance.OpenBeam.Title" parent="TextAppearance.Material3.HeadlineSmall">
         <item name="android:textColor">@color/dialog_text_primary</item>
         <item name="android:textStyle">bold</item>
         <item name="android:gravity">center</item>
     </style>
 
-    <style name="TextAppearance.OpenBeam.Status" parent="TextAppearance.MaterialComponents.Body1">
+    <style name="TextAppearance.OpenBeam.Status" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:textColor">@color/dialog_text_primary</item>
         <item name="android:gravity">center</item>
     </style>
 
-    <style name="TextAppearance.OpenBeam.Hint" parent="TextAppearance.MaterialComponents.Caption">
+    <style name="TextAppearance.OpenBeam.Hint" parent="TextAppearance.Material3.BodySmall">
         <item name="android:textColor">@color/dialog_text_secondary</item>
         <item name="android:gravity">center</item>
     </style>
