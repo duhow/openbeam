@@ -4,6 +4,8 @@
     <!-- NFC (core feature) -->
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <!-- HCE: emulate NFC Type 4 Tag to share NDEF with other devices -->
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
 
     <!-- Wi-Fi Direct (fallback file transfer) -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -66,17 +68,25 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
 
-            <!-- NFC tag discovered while activity is in foreground (foreground dispatch) -->
-            <intent-filter>
-                <action android:name="android.nfc.action.TAG_DISCOVERED" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-
         </activity>
+
+        <!--
+            NdefHceService: emulates an NFC Type 4 Tag (T4T) via Host Card Emulation.
+            Allows any NFC reader (Android, iOS 13+) to tap and read NDEF content from this
+            device without writing to a physical tag.
+            Protected by BIND_NFC_SERVICE so only the NFC system can bind to it.
+        -->
+        <service
+            android:name=".sharing.NdefHceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/apduservice" />
+        </service>
 
     </application>
 

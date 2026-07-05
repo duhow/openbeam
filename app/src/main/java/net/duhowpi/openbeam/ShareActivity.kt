@@ -41,7 +41,7 @@ import net.duhowpi.openbeam.util.SoundManager
  * user cancels), the activity finishes immediately.
  *
  * Share flow:
- *  • text/plain, text/vcard  → NDEF message → NFC tag write
+ *  • text/plain, text/vcard  → NDEF message → HCE emulation (NFC Type 4 Tag)
  *  • image (any)             → QR scan → NDEF (if QR found)
  *                                       → Wi-Fi Direct (if no QR / NFC unavailable)
  *
@@ -110,12 +110,14 @@ class ShareActivity : AppCompatActivity() {
         super.onResume()
         wifiShare.register()
 
-        // NFC foreground dispatch MUST be enabled from onResume (NFC API requirement).
-        // shareViaNfc() stores the message; we enable dispatch here.
+        // HCE content must be registered while the activity is in the foreground.
+        // shareViaNfc() stores the message; we activate HCE here so it is
+        // cleared in onPause and never serves content when the screen is off or
+        // the activity is in the background.
         val msg = pendingNfcMessage
         val cb = nfcStateCallback
         if (msg != null && cb != null) {
-            Log.d(TAG, "onResume – enabling NFC foreground dispatch")
+            Log.d(TAG, "onResume – activating HCE sharing")
             nfcHelper.startSharing(msg, cb)
         }
     }
@@ -126,11 +128,11 @@ class ShareActivity : AppCompatActivity() {
         wifiShare.unregister()
     }
 
-    /** Forward any remaining intents received while activity is on top (singleTop). */
+    /** Forward any remaining share intents received while activity is on top (singleTop). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // NFC is now handled via NfcAdapter.enableReaderMode callback in NfcShareHelper;
-        // no NFC intents are dispatched to the activity while reader mode is active.
+        // NFC NDEF sharing is handled by NdefHceService (HCE); no NFC intents are dispatched
+        // to the activity. Only new ACTION_SEND intents can arrive here.
     }
 
     override fun onRequestPermissionsResult(

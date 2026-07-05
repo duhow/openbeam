@@ -4,7 +4,7 @@
     <!-- Mensajes de estado -->
     <string name="status_waiting_nfc">Acerca el dispositivo a otro</string>
     <string name="status_scanning_qr">Buscando código QR…</string>
-    <string name="status_writing">Escribiendo…</string>
+    <string name="status_writing">Enviando…</string>
     <string name="status_done">¡Listo!</string>
     <string name="status_error">Algo salió mal</string>
     <string name="status_unsupported">Tipo de contenido no compatible</string>
@@ -33,4 +33,7 @@
 
     <!-- Diagnóstico -->
     <string name="debug_info_copied">Info de diagnóstico copiada — pégala en tu informe de error</string>
+
+    <!-- Descripción del servicio HCE (se muestra en los ajustes NFC de Android) -->
+    <string name="hce_service_desc">Compartición NDEF de OpenBeam</string>
 </resources>
