@@ -7,4 +7,4 @@ Initial release.
 
 Fixes:
 - Removed duplicate app title shown outside the share dialog
-- NFC sharing now uses Host Card Emulation (HCE) instead of writing to physical tags; Mifare/NTAG2xx tags are never modified
+- NFC sharing no longer requires a physical tag — just tap devices together
