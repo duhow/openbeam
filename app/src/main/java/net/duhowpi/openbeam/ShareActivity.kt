@@ -41,7 +41,7 @@ import net.duhowpi.openbeam.util.SoundManager
  * user cancels), the activity finishes immediately.
  *
  * Share flow:
- *  • text/plain, text/vcard  → NDEF message → NFC tag write
+ *  • text/plain, text/vcard  → NDEF message → HCE emulation (NFC Type 4 Tag)
  *  • image (any)             → QR scan → NDEF (if QR found)
  *                                       → Wi-Fi Direct (if no QR / NFC unavailable)
  *
@@ -66,9 +66,9 @@ class ShareActivity : AppCompatActivity() {
     private lateinit var btnDebug: Button
 
     /**
-     * NFC message ready to write, prepared in [handleShareIntent] (called from [onCreate]).
-     * Actual reader mode is enabled only in [onResume] because
-     * [android.nfc.NfcAdapter.enableReaderMode] requires the activity to be resumed.
+     * NFC message ready to emit via HCE, prepared in [handleShareIntent] (called from [onCreate]).
+     * HCE activation and tag-polling suppression happen in [onResume] so they are
+     * automatically undone in [onPause] whenever the activity leaves the foreground.
      */
     private var pendingNfcMessage: NdefMessage? = null
     private var nfcStateCallback: ((NfcShareState) -> Unit)? = null
@@ -110,12 +110,14 @@ class ShareActivity : AppCompatActivity() {
         super.onResume()
         wifiShare.register()
 
-        // NFC foreground dispatch MUST be enabled from onResume (NFC API requirement).
-        // shareViaNfc() stores the message; we enable dispatch here.
+        // HCE content must be registered while the activity is in the foreground.
+        // shareViaNfc() stores the message; we activate HCE here so it is
+        // cleared in onPause and never serves content when the screen is off or
+        // the activity is in the background.
         val msg = pendingNfcMessage
         val cb = nfcStateCallback
         if (msg != null && cb != null) {
-            Log.d(TAG, "onResume – enabling NFC foreground dispatch")
+            Log.d(TAG, "onResume – activating HCE sharing")
             nfcHelper.startSharing(msg, cb)
         }
     }
@@ -126,11 +128,11 @@ class ShareActivity : AppCompatActivity() {
         wifiShare.unregister()
     }
 
-    /** Forward any remaining intents received while activity is on top (singleTop). */
+    /** Forward any remaining share intents received while activity is on top (singleTop). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // NFC is now handled via NfcAdapter.enableReaderMode callback in NfcShareHelper;
-        // no NFC intents are dispatched to the activity while reader mode is active.
+        // NFC NDEF sharing is handled by NdefHceService (HCE); no NFC intents are dispatched
+        // to the activity. Only new ACTION_SEND intents can arrive here.
     }
 
     override fun onRequestPermissionsResult(
@@ -267,7 +269,7 @@ class ShareActivity : AppCompatActivity() {
         pendingNfcMessage = message
         nfcStateCallback = callback
 
-        // enableReaderMode() requires the activity to be resumed.
+        // startSharing() requires the activity to be resumed (NfcAdapter API requirement).
         // If already resumed (e.g. called after QR scan), start immediately;
         // otherwise onResume() will pick up pendingNfcMessage and start it.
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {

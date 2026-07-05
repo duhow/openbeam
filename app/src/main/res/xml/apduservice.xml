@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    HCE service descriptor for NFC Type 4 Tag emulation.
+    AID D2760000850101 is the NFC Forum NDEF Application identifier (T4T spec).
+    category="other" keeps this service out of the payment selection UI.
+-->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/hce_service_desc"
+    android:requireDeviceUnlock="false">
+
+    <aid-group
+        android:description="@string/hce_service_desc"
+        android:category="other">
+        <aid-filter android:name="D2760000850101" />
+    </aid-group>
+
+</host-apdu-service>

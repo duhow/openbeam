@@ -1,11 +1,11 @@
 Initial release.
 
-- Share URLs, vCards and plain text via NFC tag write
+- Share URLs, vCards and plain text via NFC (HCE emulation — no physical tag required)
 - Scan images for QR codes and beam the decoded content (URLs, Wi-Fi credentials) via NFC
 - Wi-Fi Direct fallback when image has no QR code or NFC is unavailable
 - Supports English, Spanish and Catalan
 
 Fixes:
 - Removed duplicate app title shown outside the share dialog
-- NFC tap sound no longer plays when a non-writable tag (e.g. a payment card) is nearby during sharing
-- Payment card emulation (HCE) is now paused while sharing is active, blocking unintended NFC payment reads
+- NFC sharing no longer requires a physical tag — just tap devices together
+- Device no longer reads physical NFC tags while sharing is active

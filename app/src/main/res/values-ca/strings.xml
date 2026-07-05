@@ -4,7 +4,7 @@
     <!-- Missatges d\'estat -->
     <string name="status_waiting_nfc">Acosta\'l a un altre dispositiu</string>
     <string name="status_scanning_qr">Cercant codi QR…</string>
-    <string name="status_writing">Escrivint…</string>
+    <string name="status_writing">Enviant…</string>
     <string name="status_done">Fet!</string>
     <string name="status_error">Alguna cosa ha anat malament</string>
     <string name="status_unsupported">Tipus de contingut no compatible</string>
@@ -33,4 +33,7 @@
 
     <!-- Diagnòstic -->
     <string name="debug_info_copied">Info de diagnòstic copiada — enganxa-la a l\'informe d\'error</string>
+
+    <!-- Descripció del servei HCE (es mostra a la configuració NFC d\'Android) -->
+    <string name="hce_service_desc">Compartició NDEF d\'OpenBeam</string>
 </resources>

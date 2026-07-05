@@ -4,7 +4,7 @@
     <!-- Status messages -->
     <string name="status_waiting_nfc">Hold near another device</string>
     <string name="status_scanning_qr">Scanning for QR code…</string>
-    <string name="status_writing">Writing…</string>
+    <string name="status_writing">Sending…</string>
     <string name="status_done">Done!</string>
     <string name="status_error">Something went wrong</string>
     <string name="status_unsupported">Unsupported content type</string>
@@ -33,4 +33,7 @@
 
     <!-- Diagnostics -->
     <string name="debug_info_copied">Diagnostic info copied — paste it in your bug report</string>
+
+    <!-- HCE service description (shown in Android NFC settings) -->
+    <string name="hce_service_desc">OpenBeam NDEF share</string>
 </resources>

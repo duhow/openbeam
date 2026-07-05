@@ -1,42 +1,53 @@
 package net.duhowpi.openbeam.sharing
 
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
-import android.nfc.Tag
-import android.nfc.tech.Ndef
-import android.nfc.tech.NdefFormatable
 
 /**
- * Manages NFC reader mode and NDEF tag writing.
+ * Manages NFC NDEF sharing via Host Card Emulation (HCE).
  *
  * Usage:
- * 1. Call [startSharing] with the message to send and a callback (from onResume).
+ * 1. Call [startSharing] with the NDEF message to share (from onResume).
  * 2. Call [stopSharing] in onPause or when done.
  *
- * Uses [NfcAdapter.enableReaderMode] instead of foreground dispatch so that:
- * - The platform NFC tap sound is suppressed ([NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS]).
- * - Host Card Emulation (HCE/payment) is paused while sharing is active, preventing the
- *   device from responding to external payment terminals.
- * - Other NFC apps are blocked from receiving tags while the activity is in the foreground.
+ * The device emulates an NFC Type 4 Tag (T4T) using [NdefHceService], allowing any
+ * NFC-capable reader — another Android device, iPhone (iOS 13+), or dedicated hardware —
+ * to tap and read the NDEF content. No physical NFC tag is written.
  *
- * Android Beam (`setNdefPushMessage`) was removed in API 34.
+ * While sharing is active, [startSharing] calls [NfcAdapter.enableReaderMode] with all four
+ * NFC technology flags (NFC_A, NFC_B, NFC_F, NFC_V) plus [NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK]
+ * and [NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS]. This puts the NFC stack into reader mode for
+ * every tag type, routing any physical tag discovery to our no-op callback instead of the OS
+ * NDEF/TAG intent dispatch, so the device will not inadvertently open URLs or launch apps when a
+ * physical NFC tag (Mifare, NTAG2xx, ISO-DEP, etc.) is brought near it. HCE card emulation runs
+ * on an independent path in the NFC controller and remains active throughout. [stopSharing] calls
+ * [NfcAdapter.disableReaderMode] to restore normal tag-dispatch behaviour when sharing ends.
+ *
+ * [NdefHceService] is bound by the NFC subsystem when a reader selects the NDEF Application
+ * AID; [startSharing] / [stopSharing] gate the content and callbacks via a single atomic
+ * [NdefHceService.session] reference so that HCE only responds while the activity is in the
+ * foreground and the service never observes a partially-initialised state.
  */
 class NfcShareHelper(private val activity: Activity) {
 
     private val adapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
 
-    @Volatile private var pendingMessage: NdefMessage? = null
-    @Volatile private var onResult: ((NfcShareState) -> Unit)? = null
-
-    /** True if NFC hardware is present and enabled on this device. */
+    /**
+     * True if NFC hardware is present, enabled, and the device supports HCE.
+     * Used to decide whether to attempt NFC sharing or fall back to Wi-Fi Direct.
+     */
     val isAvailable: Boolean
-        get() = adapter?.isEnabled == true
+        get() = adapter?.isEnabled == true &&
+            activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
 
     /**
-     * Enable NFC reader mode so the activity can catch tag discoveries.
-     * Must be called from Activity.onResume (NFC API requirement).
-     * @param message NDEF message to write when a tag is tapped.
+     * Register [message] for HCE emulation so the next reader tap can receive it, and suppress
+     * physical-tag dispatch so the device behaves purely as a card emulator.
+     * Should be called from Activity.onResume (paired with [stopSharing] in onPause).
+     *
+     * @param message NDEF message to emit when another device taps.
      * @param onResult Callback invoked with the result state (may be called from a background thread).
      */
     fun startSharing(message: NdefMessage, onResult: (NfcShareState) -> Unit) {
@@ -44,93 +55,60 @@ class NfcShareHelper(private val activity: Activity) {
             onResult(NfcShareState.Unsupported)
             return
         }
-        this.pendingMessage = message
-        this.onResult = onResult
-        enableReaderMode()
-        onResult(NfcShareState.Waiting)
-    }
+        // Publish all session state atomically via a single volatile reference so that
+        // the service never sees a partial state (e.g. ndefBytes set but callbacks still null).
+        NdefHceService.session = NdefHceService.HceSession(
+            ndefBytes    = message.toByteArray(),
+            onConnected  = { onResult(NfcShareState.Writing) },
+            onComplete   = { onResult(NfcShareState.Success) },
+        )
 
-    /** Disable reader mode. Call from Activity.onPause. */
-    fun stopSharing() {
-        adapter?.disableReaderMode(activity)
-        pendingMessage = null
-        onResult = null
-    }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    private fun enableReaderMode() {
-        // Listen for all common NFC tag technologies.
-        // FLAG_READER_NO_PLATFORM_SOUNDS suppresses the OS tap sound when any tag is detected,
-        // so non-NDEF tags (e.g. EMV payment cards) are silently ignored.
-        val flags = NfcAdapter.FLAG_READER_NFC_A or
+        // Suppress physical-tag dispatch while HCE is active.
+        // enableReaderMode with ALL technology flags (NFC_A/B/F/V) puts the NFC stack into
+        // reader mode for every tag type. Any physical tag (Mifare, NTAG2xx, ISO-DEP, FeliCa,
+        // ISO 15693) discovered during sharing is routed to our no-op callback instead of being
+        // dispatched via NDEF_DISCOVERED / TAG_DISCOVERED intents, so the OS will not open URLs
+        // or launch other apps. FLAG_READER_SKIP_NDEF_CHECK skips the slow NDEF-compatibility
+        // check on discovered tags (we ignore them anyway). FLAG_READER_NO_PLATFORM_SOUNDS
+        // suppresses the NFC discovery sound. HCE card emulation runs on an independent path
+        // in the NFC controller and is unaffected by reader mode.
+        adapter?.enableReaderMode(
+            activity,
+            { /* physical tag discovered during sharing – intentionally ignored */ },
+            NfcAdapter.FLAG_READER_NFC_A or
             NfcAdapter.FLAG_READER_NFC_B or
             NfcAdapter.FLAG_READER_NFC_F or
             NfcAdapter.FLAG_READER_NFC_V or
-            NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS
-        adapter?.enableReaderMode(activity, ::onTagDiscovered, flags, null)
+            NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or
+            NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+            null,
+        )
+
+        onResult(NfcShareState.Waiting)
     }
 
-    /**
-     * Called by the NFC subsystem on a background thread when a tag is detected.
-     * Non-NDEF tags (e.g. EMV payment cards) are silently ignored so no error is shown.
-     */
-    private fun onTagDiscovered(tag: Tag) {
-        val message = pendingMessage ?: return
-        val callback = onResult ?: return
-
-        // Ignore tags that support neither NDEF nor NdefFormatable (e.g. payment cards).
-        if (Ndef.get(tag) == null && NdefFormatable.get(tag) == null) return
-
-        callback(NfcShareState.Writing)
-        val success = writeNdef(tag, message)
-        callback(if (success) NfcShareState.Success else NfcShareState.Error)
-    }
-
-    /** Write [message] to [tag]. Returns true on success. */
-    private fun writeNdef(tag: Tag, message: NdefMessage): Boolean {
-        // Try NDEF first (tag already formatted)
-        Ndef.get(tag)?.let { ndef ->
-            return runCatching {
-                ndef.connect()
-                check(ndef.isWritable) { "Tag is read-only" }
-                check(ndef.maxSize >= message.byteArrayLength) { "Message too large for tag" }
-                ndef.writeNdefMessage(message)
-                ndef.close()
-                true
-            }.getOrElse { false }
-        }
-
-        // Try NdefFormatable (blank tag that needs formatting)
-        NdefFormatable.get(tag)?.let { formatable ->
-            return runCatching {
-                formatable.connect()
-                formatable.format(message)
-                formatable.close()
-                true
-            }.getOrElse { false }
-        }
-
-        return false
+    /** Restore normal NFC tag polling and clear HCE content. Call from Activity.onPause. */
+    fun stopSharing() {
+        adapter?.disableReaderMode(activity)
+        // Clear atomically so the service never sees a session with null callbacks.
+        NdefHceService.session = null
     }
 }
 
 /** States emitted during an NFC share operation. */
 sealed class NfcShareState {
-    /** Foreground dispatch active, waiting for user to tap a tag. */
+    /** HCE active, waiting for another device to tap. */
     object Waiting : NfcShareState()
 
-    /** Tag detected, writing NDEF message. */
+    /** Another device has connected and is reading the NDEF message. */
     object Writing : NfcShareState()
 
-    /** Message written successfully. */
+    /** NDEF message was read successfully by the other device. */
     object Success : NfcShareState()
 
-    /** Write failed (tag not writable, too small, I/O error). */
+    /** Sharing failed unexpectedly. */
     object Error : NfcShareState()
 
-    /** NFC is not available or disabled on this device. */
+    /** NFC or HCE is not available or disabled on this device. */
     object Unsupported : NfcShareState()
 }
