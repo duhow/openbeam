@@ -10,7 +10,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.nfc.NdefMessage
-import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -67,8 +66,8 @@ class ShareActivity : AppCompatActivity() {
 
     /**
      * NFC message ready to write, prepared in [handleShareIntent] (called from [onCreate]).
-     * Actual foreground dispatch is enabled only in [onResume] because
-     * [android.nfc.NfcAdapter.enableForegroundDispatch] requires the activity to be resumed.
+     * Actual reader mode is enabled only in [onResume] because
+     * [android.nfc.NfcAdapter.enableReaderMode] requires the activity to be resumed.
      */
     private var pendingNfcMessage: NdefMessage? = null
     private var nfcStateCallback: ((NfcShareState) -> Unit)? = null
@@ -81,6 +80,9 @@ class ShareActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The Dialog theme may still show an AppCompat action bar as an outer title;
+        // hide it so only the tv_app_name inside the dialog box is visible.
+        supportActionBar?.hide()
         setContentView(R.layout.activity_share)
 
         tvStatus = findViewById(R.id.tv_status)
@@ -123,17 +125,11 @@ class ShareActivity : AppCompatActivity() {
         wifiShare.unregister()
     }
 
-    /** Forward NFC tag-discovered intents received via foreground dispatch. */
+    /** Forward any remaining intents received while activity is on top (singleTop). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.action == NfcAdapter.ACTION_TAG_DISCOVERED ||
-            intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED ||
-            intent.action == NfcAdapter.ACTION_TECH_DISCOVERED
-        ) {
-            Log.d(TAG, "NFC tag discovered")
-            SoundManager.playBeam(this)
-            nfcHelper.onNewIntent(intent)
-        }
+        // NFC is now handled via NfcAdapter.enableReaderMode callback in NfcShareHelper;
+        // no NFC intents are dispatched to the activity while reader mode is active.
     }
 
     override fun onRequestPermissionsResult(
@@ -270,7 +266,7 @@ class ShareActivity : AppCompatActivity() {
         pendingNfcMessage = message
         nfcStateCallback = callback
 
-        // enableForegroundDispatch() requires the activity to be resumed.
+        // enableReaderMode() requires the activity to be resumed.
         // If already resumed (e.g. called after QR scan), start immediately;
         // otherwise onResume() will pick up pendingNfcMessage and start it.
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
@@ -288,6 +284,7 @@ class ShareActivity : AppCompatActivity() {
             NfcShareState.Writing -> {
                 setStatus(getString(R.string.status_writing))
                 progressBar.visibility = View.VISIBLE
+                SoundManager.playBeam(this)
             }
             NfcShareState.Success -> {
                 progressBar.visibility = View.GONE

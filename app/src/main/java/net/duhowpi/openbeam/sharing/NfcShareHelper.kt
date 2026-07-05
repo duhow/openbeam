@@ -1,41 +1,43 @@
 package net.duhowpi.openbeam.sharing
 
 import android.app.Activity
-import android.app.PendingIntent
-import android.content.Intent
 import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
-import android.os.Build
 
 /**
- * Manages NFC foreground dispatch and NDEF tag writing.
+ * Manages NFC reader mode and NDEF tag writing.
  *
  * Usage:
- * 1. Call [startSharing] with the message to send and a callback.
- * 2. Forward `onNewIntent` to [onNewIntent].
- * 3. Call [stopSharing] in `onPause` or when done.
+ * 1. Call [startSharing] with the message to send and a callback (from onResume).
+ * 2. Call [stopSharing] in onPause or when done.
+ *
+ * Uses [NfcAdapter.enableReaderMode] instead of foreground dispatch so that:
+ * - The platform NFC tap sound is suppressed ([NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS]).
+ * - Host Card Emulation (HCE/payment) is paused while sharing is active, preventing the
+ *   device from responding to external payment terminals.
+ * - Other NFC apps are blocked from receiving tags while the activity is in the foreground.
  *
  * Android Beam (`setNdefPushMessage`) was removed in API 34.
- * This helper uses foreground dispatch instead: it enables the activity to
- * intercept NFC tags while in the foreground and write the NDEF message to them.
  */
 class NfcShareHelper(private val activity: Activity) {
 
     private val adapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
-    private var pendingMessage: NdefMessage? = null
-    private var onResult: ((NfcShareState) -> Unit)? = null
+
+    @Volatile private var pendingMessage: NdefMessage? = null
+    @Volatile private var onResult: ((NfcShareState) -> Unit)? = null
 
     /** True if NFC hardware is present and enabled on this device. */
     val isAvailable: Boolean
         get() = adapter?.isEnabled == true
 
     /**
-     * Enable NFC foreground dispatch so the activity can catch tag discoveries.
+     * Enable NFC reader mode so the activity can catch tag discoveries.
+     * Must be called from Activity.onResume (NFC API requirement).
      * @param message NDEF message to write when a tag is tapped.
-     * @param onResult Callback invoked with the result state.
+     * @param onResult Callback invoked with the result state (may be called from a background thread).
      */
     fun startSharing(message: NdefMessage, onResult: (NfcShareState) -> Unit) {
         if (!isAvailable) {
@@ -44,56 +46,47 @@ class NfcShareHelper(private val activity: Activity) {
         }
         this.pendingMessage = message
         this.onResult = onResult
-        enableForegroundDispatch()
+        enableReaderMode()
         onResult(NfcShareState.Waiting)
     }
 
-    /** Disable foreground dispatch. Call from Activity.onPause. */
+    /** Disable reader mode. Call from Activity.onPause. */
     fun stopSharing() {
-        adapter?.disableForegroundDispatch(activity)
+        adapter?.disableReaderMode(activity)
         pendingMessage = null
         onResult = null
-    }
-
-    /**
-     * Must be called from Activity.onNewIntent.
-     * Handles NFC tag discovery and writes the pending NDEF message.
-     */
-    fun onNewIntent(intent: Intent) {
-        val action = intent.action ?: return
-        if (action != NfcAdapter.ACTION_TAG_DISCOVERED &&
-            action != NfcAdapter.ACTION_NDEF_DISCOVERED &&
-            action != NfcAdapter.ACTION_TECH_DISCOVERED
-        ) return
-
-        val tag: Tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
-        } ?: return
-
-        val message = pendingMessage ?: return
-        val callback = onResult ?: return
-
-        callback(NfcShareState.Writing)
-        val success = writeNdef(tag, message)
-        callback(if (success) NfcShareState.Success else NfcShareState.Error)
     }
 
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private fun enableForegroundDispatch() {
-        val intent = Intent(activity, activity.javaClass).apply {
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            activity, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
-        )
-        adapter?.enableForegroundDispatch(activity, pendingIntent, null, null)
+    private fun enableReaderMode() {
+        // Listen for all common NFC tag technologies.
+        // FLAG_READER_NO_PLATFORM_SOUNDS suppresses the OS tap sound when any tag is detected,
+        // so non-NDEF tags (e.g. EMV payment cards) are silently ignored.
+        val flags = NfcAdapter.FLAG_READER_NFC_A or
+            NfcAdapter.FLAG_READER_NFC_B or
+            NfcAdapter.FLAG_READER_NFC_F or
+            NfcAdapter.FLAG_READER_NFC_V or
+            NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS
+        adapter?.enableReaderMode(activity, ::onTagDiscovered, flags, null)
+    }
+
+    /**
+     * Called by the NFC subsystem on a background thread when a tag is detected.
+     * Non-NDEF tags (e.g. EMV payment cards) are silently ignored so no error is shown.
+     */
+    private fun onTagDiscovered(tag: Tag) {
+        val message = pendingMessage ?: return
+        val callback = onResult ?: return
+
+        // Ignore tags that support neither NDEF nor NdefFormatable (e.g. payment cards).
+        if (Ndef.get(tag) == null && NdefFormatable.get(tag) == null) return
+
+        callback(NfcShareState.Writing)
+        val success = writeNdef(tag, message)
+        callback(if (success) NfcShareState.Success else NfcShareState.Error)
     }
 
     /** Write [message] to [tag]. Returns true on success. */
