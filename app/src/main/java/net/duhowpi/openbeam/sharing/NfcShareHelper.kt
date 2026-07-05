@@ -1,9 +1,13 @@
 package net.duhowpi.openbeam.sharing
 
 import android.app.Activity
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
+import android.os.Build
 
 /**
  * Manages NFC NDEF sharing via Host Card Emulation (HCE).
@@ -16,14 +20,28 @@ import android.nfc.NfcAdapter
  * NFC-capable reader — another Android device, iPhone (iOS 13+), or dedicated hardware —
  * to tap and read the NDEF content. No physical NFC tag is written.
  *
- * While sharing is active, [startSharing] calls [NfcAdapter.enableReaderMode] with all four
- * NFC technology flags (NFC_A, NFC_B, NFC_F, NFC_V) plus [NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK]
- * and [NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS]. This puts the NFC stack into reader mode for
- * every tag type, routing any physical tag discovery to our no-op callback instead of the OS
- * NDEF/TAG intent dispatch, so the device will not inadvertently open URLs or launch apps when a
- * physical NFC tag (Mifare, NTAG2xx, ISO-DEP, etc.) is brought near it. HCE card emulation runs
- * on an independent path in the NFC controller and remains active throughout. [stopSharing] calls
- * [NfcAdapter.disableReaderMode] to restore normal tag-dispatch behaviour when sharing ends.
+ * **Preventing the OS tag-dispatch chooser while sharing**
+ *
+ * Android resolves NFC tag discoveries in three tiers:
+ *   1. ACTION_NDEF_DISCOVERED — highest priority; MIME/URI filtering.
+ *   2. ACTION_TECH_DISCOVERED — technology-list matching.
+ *   3. ACTION_TAG_DISCOVERED  — catch-all fallback.
+ *
+ * [NfcAdapter.enableForegroundDispatch] intercepts these intents before they reach normal
+ * app dispatch, routing them to our activity's onNewIntent (where they are ignored) instead.
+ * Passing `null, null` for the filters/techLists parameters only hooks into the
+ * ACTION_TAG_DISCOVERED tier. When the other device's NFC carries NDEF data, Android
+ * evaluates ACTION_NDEF_DISCOVERED first — and if that tier is not intercepted by our
+ * foreground dispatch, the OS shows an app-chooser dialog for every installed app that
+ * handles that NDEF type.
+ *
+ * The fix is to supply explicit [IntentFilter] arrays that cover all three tiers,
+ * including ACTION_NDEF_DISCOVERED with a wildcard `*∕*` MIME type so every NDEF tag
+ * is captured regardless of content type.
+ *
+ * Note: [NfcAdapter.enableReaderMode] is intentionally NOT used here. Per the Android
+ * documentation it disables HCE/card-emulation routing for the duration it is active,
+ * which would prevent the receiving device from reading our emulated tag.
  *
  * [NdefHceService] is bound by the NFC subsystem when a reader selects the NDEF Application
  * AID; [startSharing] / [stopSharing] gate the content and callbacks via a single atomic
@@ -43,8 +61,9 @@ class NfcShareHelper(private val activity: Activity) {
             activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
 
     /**
-     * Register [message] for HCE emulation so the next reader tap can receive it, and suppress
-     * physical-tag dispatch so the device behaves purely as a card emulator.
+     * Register [message] for HCE emulation so the next reader tap can receive it, and enable
+     * foreground dispatch so that any NFC tag discovered by this device is routed to our
+     * activity (where it is ignored) rather than dispatched OS-wide.
      * Should be called from Activity.onResume (paired with [stopSharing] in onPause).
      *
      * @param message NDEF message to emit when another device taps.
@@ -63,35 +82,63 @@ class NfcShareHelper(private val activity: Activity) {
             onComplete   = { onResult(NfcShareState.Success) },
         )
 
-        // Suppress physical-tag dispatch while HCE is active.
-        // enableReaderMode with ALL technology flags (NFC_A/B/F/V) puts the NFC stack into
-        // reader mode for every tag type. Any physical tag (Mifare, NTAG2xx, ISO-DEP, FeliCa,
-        // ISO 15693) discovered during sharing is routed to our no-op callback instead of being
-        // dispatched via NDEF_DISCOVERED / TAG_DISCOVERED intents, so the OS will not open URLs
-        // or launch other apps. FLAG_READER_SKIP_NDEF_CHECK skips the slow NDEF-compatibility
-        // check on discovered tags (we ignore them anyway). FLAG_READER_NO_PLATFORM_SOUNDS
-        // suppresses the NFC discovery sound. HCE card emulation runs on an independent path
-        // in the NFC controller and is unaffected by reader mode.
-        adapter?.enableReaderMode(
+        // Intercept all three NFC dispatch tiers so the OS never shows a tag-chooser dialog
+        // or launches other apps while sharing is active. Explicit filters are required:
+        // passing null covers only ACTION_TAG_DISCOVERED, leaving ACTION_NDEF_DISCOVERED free
+        // to trigger the system chooser when the other device carries NDEF data.
+        adapter?.enableForegroundDispatch(
             activity,
-            { /* physical tag discovered during sharing – intentionally ignored */ },
-            NfcAdapter.FLAG_READER_NFC_A or
-            NfcAdapter.FLAG_READER_NFC_B or
-            NfcAdapter.FLAG_READER_NFC_F or
-            NfcAdapter.FLAG_READER_NFC_V or
-            NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or
-            NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+            buildNfcPendingIntent(),
+            buildDispatchFilters(),
             null,
         )
 
         onResult(NfcShareState.Waiting)
     }
 
-    /** Restore normal NFC tag polling and clear HCE content. Call from Activity.onPause. */
+    /** Restore normal NFC dispatch and clear HCE content. Call from Activity.onPause. */
     fun stopSharing() {
-        adapter?.disableReaderMode(activity)
+        adapter?.disableForegroundDispatch(activity)
         // Clear atomically so the service never sees a session with null callbacks.
         NdefHceService.session = null
+    }
+
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build a PendingIntent that brings our activity to the foreground when the NFC
+     * subsystem fires a tag-discovered intent via foreground dispatch.
+     * FLAG_MUTABLE is required on API 31+ so the system can add TAG/NDEF extras to the intent.
+     */
+    private fun buildNfcPendingIntent(): PendingIntent {
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val intent = Intent(activity, activity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(activity, 0, intent, flags)
+    }
+
+    /**
+     * Build IntentFilters that intercept all three NFC dispatch tiers:
+     *  - ACTION_NDEF_DISCOVERED with `*∕*` to catch NDEF tags of any MIME type or URI.
+     *  - ACTION_TECH_DISCOVERED as a fallback for non-NDEF tech-routed tags.
+     *  - ACTION_TAG_DISCOVERED as the final catch-all.
+     *
+     * All matching intents are delivered to our activity's onNewIntent and ignored there,
+     * preventing the OS from routing them to other apps or showing a chooser dialog.
+     */
+    private fun buildDispatchFilters(): Array<IntentFilter> {
+        val ndefFilter = IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED).apply {
+            try { addDataType("*/*") } catch (_: IntentFilter.MalformedMimeTypeException) {}
+        }
+        return arrayOf(
+            ndefFilter,
+            IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED),
+            IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED),
+        )
     }
 }
 
