@@ -1,1 +1,1 @@
-Short description of app.
+Modern Android Beam replacement – NFC + Wi-Fi Direct tap-to-share

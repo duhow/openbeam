@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme – required but the app has no launcher -->
+    <style name="Theme.OpenBeam" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/openbeam_primary</item>
+        <item name="colorOnPrimary">@color/openbeam_on_primary</item>
+        <item name="colorSecondary">@color/openbeam_secondary</item>
+    </style>
+
+    <!-- Dialog-style theme for ShareActivity: transparent background, dialog window -->
+    <style name="Theme.OpenBeam.Dialog" parent="Theme.Material3.DayNight.Dialog">
+        <item name="colorPrimary">@color/openbeam_primary</item>
+        <item name="colorOnPrimary">@color/openbeam_on_primary</item>
+        <item name="colorSecondary">@color/openbeam_secondary</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.6</item>
+        <item name="android:windowMinWidthMajor">85%</item>
+        <item name="android:windowMinWidthMinor">85%</item>
+    </style>
+
+    <!-- Text styles -->
+    <style name="TextAppearance.OpenBeam.Title" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:textColor">@color/dialog_text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="TextAppearance.OpenBeam.Status" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/dialog_text_primary</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="TextAppearance.OpenBeam.Hint" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">@color/dialog_text_secondary</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+</resources>

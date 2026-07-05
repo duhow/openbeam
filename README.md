@@ -1,26 +1,19 @@
-# Android Template
+# OpenBeam
 
 <p align="center">
-  <strong>A repository template to create new Android Kotlin apps!</strong>
+  <strong>Revive the Android Beam experience on modern Android</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/duhow/android-template/actions/workflows/build.yml">
-    <img src="https://github.com/duhow/android-template/actions/workflows/build.yml/badge.svg" alt="Build">
+  <a href="https://github.com/duhow/openbeam/actions/workflows/build.yml">
+    <img src="https://github.com/duhow/openbeam/actions/workflows/build.yml/badge.svg" alt="Build">
   </a>
   <img src="https://img.shields.io/badge/Android-8.0%2B-brightgreen?logo=android" alt="Android 8.0+">
   <img src="https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin" alt="Kotlin">
-  <!-- <a href="https://sladge.net"><img src="https://sladge.net/badge.svg" alt="AI Slop Inside"></a> -->
-  <!-- <img src="https://img.shields.io/badge/License-MIT-orange" alt="License"> -->
 </p>
 
 <p align="center">
-<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/duhow/android-template">
-  <img src="https://github.com/ImranR98/Obtainium/blob/main/assets/graphics/badge_obtainium.png" 
-       alt="Get it on Obtainium" align="center" height="54" />
-</a>
-
-<a href="https://github.com/duhow/android-template/releases/latest">
+<a href="https://github.com/duhow/openbeam/releases/latest">
   <img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/4711835e032fe2735dc80c1329beb4685899aa91/get-it-on-github.png"
        alt="Download APK" align="center" height="81" />
 </a>
@@ -28,22 +21,56 @@
 
 ---
 
-Click the button. [![Use this template](https://img.shields.io/badge/Use%20this%20template-green)](https://github.com/new?template_name=android-template&template_owner=duhow)
+OpenBeam is an open-source Android app that brings back the tap-to-share experience of **Android Beam** on modern Android (8.0+). Google removed Android Beam in Android 10 — OpenBeam fills that gap without requiring Google Play Services.
 
-Setup. Code or ask to code. Do whatever you want.
+## Features
 
-### Keystore
+- **Share URLs** via NFC tap — creates an NDEF URI record on any writable NFC tag
+- **Share contacts** (vCard) via NFC tap
+- **Share images with QR codes** — scans the image for a QR code and beams the decoded content (URL or Wi-Fi credentials) via NFC
+- **Wi-Fi Direct fallback** — when the image has no QR code or NFC is unavailable, transfers the file over Wi-Fi Direct (no Google Services required)
+- **No app drawer icon** — OpenBeam only appears in the system share sheet
+- **Translations**: English, Español, Català
 
-To sign your APK, create a keystore. **Keep it safe**.
+## How it works
+
+1. Tap **Share** in any app and select **OpenBeam** from the share sheet
+2. OpenBeam shows an overlay dialog
+3. For text/URLs/vCards: tap your phone against an NFC tag to write the data
+4. For images: OpenBeam first scans for a QR code
+   - QR found → converts to NDEF message → tap to write to NFC tag
+   - No QR → transfers via Wi-Fi Direct to another nearby device running OpenBeam
+
+## Permissions
+
+| Permission | Why |
+|---|---|
+| NFC | Core feature: write NDEF data to NFC tags |
+| ACCESS_WIFI_STATE / CHANGE_WIFI_STATE | Wi-Fi Direct peer discovery and file transfer |
+| NEARBY_WIFI_DEVICES (API 33+) | Wi-Fi peer discovery without location |
+| ACCESS_FINE_LOCATION (API < 33) | Required by Android for Wi-Fi peer discovery |
+| INTERNET | TCP socket communication over Wi-Fi Direct |
+
+## Building
 
 ```sh
-keytool -genkeypair -v -keystore release.jks -alias ${APP_NAME} -keyalg EC -groupname secp256r1 -sigalg SHA256withECDSA -validity 10000
+./fastlane/gradlew assembleDebug
 ```
 
-You can upload it to GitHub Actions as Secret `ANDROID_KEYSTORE_BASE64` to generate Release APKs.
+Or with Fastlane:
+```sh
+bundle exec fastlane build
+```
+
+## Signing a release
 
 ```sh
+keytool -genkeypair -v -keystore release.jks -alias openbeam -keyalg EC -groupname secp256r1 -sigalg SHA256withECDSA -validity 10000
 base64 -w 0 release.jks ; echo
 ```
 
-Then define `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD` (default is the same), and `ANDROID_KEY_ALIAS` as configured.
+Add GitHub Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`.
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE) for details.
