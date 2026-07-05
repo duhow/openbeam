@@ -66,9 +66,9 @@ class ShareActivity : AppCompatActivity() {
     private lateinit var btnDebug: Button
 
     /**
-     * NFC message ready to write, prepared in [handleShareIntent] (called from [onCreate]).
-     * Actual reader mode is enabled only in [onResume] because
-     * [android.nfc.NfcAdapter.enableReaderMode] requires the activity to be resumed.
+     * NFC message ready to emit via HCE, prepared in [handleShareIntent] (called from [onCreate]).
+     * HCE activation and tag-polling suppression happen in [onResume] so they are
+     * automatically undone in [onPause] whenever the activity leaves the foreground.
      */
     private var pendingNfcMessage: NdefMessage? = null
     private var nfcStateCallback: ((NfcShareState) -> Unit)? = null
@@ -269,7 +269,7 @@ class ShareActivity : AppCompatActivity() {
         pendingNfcMessage = message
         nfcStateCallback = callback
 
-        // enableReaderMode() requires the activity to be resumed.
+        // startSharing() requires the activity to be resumed (NfcAdapter API requirement).
         // If already resumed (e.g. called after QR scan), start immediately;
         // otherwise onResume() will pick up pendingNfcMessage and start it.
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {

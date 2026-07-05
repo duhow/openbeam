@@ -16,6 +16,13 @@ import android.nfc.NfcAdapter
  * NFC-capable reader — another Android device, iPhone (iOS 13+), or dedicated hardware —
  * to tap and read the NDEF content. No physical NFC tag is written.
  *
+ * While sharing is active, [startSharing] calls [NfcAdapter.enableReaderMode] with
+ * [NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS] and **no technology flags**. This tells
+ * the NFC stack to stop polling for physical tags (Mifare, NTAG2xx, ISO-DEP, etc.)
+ * without disabling HCE, so the device acts purely as a card emulator and will not
+ * inadvertently read any tag brought near it. [stopSharing] calls [NfcAdapter.disableReaderMode]
+ * to restore normal tag-polling behaviour when sharing ends.
+ *
  * [NdefHceService] is bound by the NFC subsystem when a reader selects the NDEF Application
  * AID; [startSharing] / [stopSharing] gate the content and callback via the service's
  * companion object so that HCE only responds while the activity is in the foreground.
@@ -33,7 +40,8 @@ class NfcShareHelper(private val activity: Activity) {
             activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
 
     /**
-     * Register [message] for HCE emulation so the next reader tap can receive it.
+     * Register [message] for HCE emulation so the next reader tap can receive it, and disable
+     * physical-tag polling so the device behaves purely as a card emulator.
      * Should be called from Activity.onResume (paired with [stopSharing] in onPause).
      *
      * @param message NDEF message to emit when another device taps.
@@ -47,11 +55,24 @@ class NfcShareHelper(private val activity: Activity) {
         NdefHceService.pendingNdef = message.toByteArray()
         NdefHceService.onConnected = { onResult(NfcShareState.Writing) }
         NdefHceService.onComplete  = { onResult(NfcShareState.Success) }
+
+        // Disable physical-tag polling while HCE is active.
+        // FLAG_READER_NO_PLATFORM_SOUNDS with no technology flags (NFC_A/B/F/V) stops the
+        // NFC stack from discovering tags without pausing card emulation (HCE). This prevents
+        // the device from reading Mifare/NTAG2xx/ISO-DEP tags placed near it during sharing.
+        adapter?.enableReaderMode(
+            activity,
+            { /* tag callback intentionally empty – we are the card, not the reader */ },
+            NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+            null,
+        )
+
         onResult(NfcShareState.Waiting)
     }
 
-    /** Clear HCE content so the service no longer responds. Call from Activity.onPause. */
+    /** Restore normal NFC tag polling and clear HCE content. Call from Activity.onPause. */
     fun stopSharing() {
+        adapter?.disableReaderMode(activity)
         NdefHceService.pendingNdef   = null
         NdefHceService.onConnected   = null
         NdefHceService.onComplete    = null
