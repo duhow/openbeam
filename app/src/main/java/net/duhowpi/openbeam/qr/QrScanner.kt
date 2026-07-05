@@ -1,4 +1,4 @@
-package net.duhow.openbeam.qr
+package net.duhowpi.openbeam.qr
 
 import android.graphics.Bitmap
 import com.google.zxing.BinaryBitmap

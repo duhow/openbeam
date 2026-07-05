@@ -1,4 +1,4 @@
-package net.duhow.openbeam
+package net.duhowpi.openbeam
 
 import android.content.Intent
 import android.graphics.Bitmap
@@ -14,15 +14,15 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import net.duhow.openbeam.ndef.NdefContent
-import net.duhow.openbeam.ndef.NdefHelper
-import net.duhow.openbeam.qr.QrResult
-import net.duhow.openbeam.qr.QrScanner
-import net.duhow.openbeam.sharing.NfcShareHelper
-import net.duhow.openbeam.sharing.NfcShareState
-import net.duhow.openbeam.sharing.WifiDirectShare
-import net.duhow.openbeam.sharing.WifiShareState
-import net.duhow.openbeam.util.SoundManager
+import net.duhowpi.openbeam.ndef.NdefContent
+import net.duhowpi.openbeam.ndef.NdefHelper
+import net.duhowpi.openbeam.qr.QrResult
+import net.duhowpi.openbeam.qr.QrScanner
+import net.duhowpi.openbeam.sharing.NfcShareHelper
+import net.duhowpi.openbeam.sharing.NfcShareState
+import net.duhowpi.openbeam.sharing.WifiDirectShare
+import net.duhowpi.openbeam.sharing.WifiShareState
+import net.duhowpi.openbeam.util.SoundManager
 
 /**
  * Transparent overlay activity that handles all incoming share intents.
@@ -33,7 +33,7 @@ import net.duhow.openbeam.util.SoundManager
  *
  * Share flow:
  *  • text/plain, text/vcard  → NDEF message → NFC tag write
- *  • image/*                 → QR scan → NDEF (if QR found)
+ *  • image (any)             → QR scan → NDEF (if QR found)
  *                                       → Wi-Fi Direct (if no QR / NFC unavailable)
  */
 class ShareActivity : AppCompatActivity() {

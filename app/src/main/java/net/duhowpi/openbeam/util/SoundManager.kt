@@ -1,4 +1,4 @@
-package net.duhow.openbeam.util
+package net.duhowpi.openbeam.util
 
 import android.content.Context
 import android.media.AudioManager

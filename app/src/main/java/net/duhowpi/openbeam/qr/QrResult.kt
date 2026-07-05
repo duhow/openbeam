@@ -1,4 +1,4 @@
-package net.duhow.openbeam.qr
+package net.duhowpi.openbeam.qr
 
 /**
  * Sealed class hierarchy for decoded QR code content.

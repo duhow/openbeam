@@ -1,4 +1,4 @@
-package net.duhow.openbeam.sharing
+package net.duhowpi.openbeam.sharing
 
 import android.content.BroadcastReceiver
 import android.content.Context

@@ -26,11 +26,11 @@ def getGitVersionCode = { ->
 }
 
 android {
-    namespace 'net.duhow.openbeam'
+    namespace 'net.duhowpi.openbeam'
     compileSdk 35
 
     defaultConfig {
-        applicationId "net.duhow.openbeam"
+        applicationId "net.duhowpi.openbeam"
         minSdk 26
         targetSdk 35
         versionCode getGitVersionCode()

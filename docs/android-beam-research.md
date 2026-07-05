@@ -77,7 +77,7 @@ Key TLV attributes:
 ### External Type (Custom / Future)
 ```
 TNF: NdefRecord.TNF_EXTERNAL_TYPE
-Type: "net.duhow.openbeam:<type_slug>"
+Type: "net.duhowpi.openbeam:<type_slug>"
 Payload: custom bytes
 ```
 

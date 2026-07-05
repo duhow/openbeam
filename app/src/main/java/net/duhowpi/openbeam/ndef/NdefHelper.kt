@@ -1,4 +1,4 @@
-package net.duhow.openbeam.ndef
+package net.duhowpi.openbeam.ndef
 
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord

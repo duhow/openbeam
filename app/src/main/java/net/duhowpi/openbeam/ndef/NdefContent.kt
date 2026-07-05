@@ -1,4 +1,4 @@
-package net.duhow.openbeam.ndef
+package net.duhowpi.openbeam.ndef
 
 /**
  * Sealed class hierarchy representing all content types that OpenBeam can share via NDEF.
