@@ -19,16 +19,38 @@ import android.util.Log
  *  5. READ BINARY – NDEF file (NLEN + NDEF message bytes)
  *
  * Usage:
- *  - Set [pendingNdef] with the raw NDEF message bytes before sharing begins.
- *  - Optionally register [onConnected] and [onComplete] callbacks.
- *  - Clear [pendingNdef] (and the callbacks) when sharing ends to prevent unintended reads.
+ *  - Set [session] with a [HceSession] before sharing begins.
+ *  - Clear [session] (set to null) when sharing ends to prevent unintended reads.
+ *  - The NDEF data, onConnected, and onComplete callbacks are held together in a single
+ *    volatile reference so they are always updated atomically.
  */
 class NdefHceService : HostApduService() {
+
+    /**
+     * Holds all state for one active HCE sharing session.
+     * Stored as a single [session] volatile reference so that start and stop operations
+     * are atomic — the service either sees a complete session or nothing.
+     */
+    data class HceSession(
+        val ndefBytes: ByteArray,
+        /** Called on the NFC thread when a reader selects the NDEF Application. */
+        val onConnected: () -> Unit,
+        /** Called on the NFC thread after [onDeactivated] once NDEF data was served. */
+        val onComplete: () -> Unit,
+    ) {
+        // ByteArray equality is identity by default; override so data class equals() is useful.
+        override fun equals(other: Any?): Boolean =
+            other is HceSession && ndefBytes.contentEquals(other.ndefBytes)
+        override fun hashCode(): Int = ndefBytes.contentHashCode()
+    }
 
     companion object {
         private const val TAG = "NdefHceService"
 
-        // NFC Forum NDEF Application AID (Type 4 Tag)
+        // NFC Forum NDEF Application AID (Type 4 Tag, T4T spec §5.2):
+        //   D2 76 00 00 85 – NFC Forum RID
+        //   01             – PIX (application family: NDEF)
+        //   01             – version byte
         private val NDEF_AID = byteArrayOf(
             0xD2.toByte(), 0x76, 0x00, 0x00, 0x85.toByte(), 0x01, 0x01,
         )
@@ -60,14 +82,12 @@ class NdefHceService : HostApduService() {
             0xFF.toByte(),           // Write access: prohibited
         )
 
-        /** Raw NDEF message bytes to serve. Set before sharing; clear to stop serving. */
-        @Volatile var pendingNdef: ByteArray? = null
-
-        /** Called on the NFC thread when a reader selects the NDEF Application. */
-        @Volatile var onConnected: (() -> Unit)? = null
-
-        /** Called on the NFC thread after [onDeactivated] once NDEF data was served. */
-        @Volatile var onComplete: (() -> Unit)? = null
+        /**
+         * Active sharing session. A single volatile reference ensures that ndefBytes,
+         * onConnected, and onComplete are always read as a consistent unit — no partial
+         * state is visible between a set and a clear in [NfcShareHelper].
+         */
+        @Volatile var session: HceSession? = null
     }
 
     private enum class SelectedFile { NONE, CC, NDEF }
@@ -89,10 +109,11 @@ class NdefHceService : HostApduService() {
                 val lc = apdu[4].toInt() and 0xFF
                 if (apdu.size < 5 + lc) return SW_WRONG_LENGTH
                 val aid = apdu.sliceArray(5 until 5 + lc)
-                if (aid.contentEquals(NDEF_AID) && pendingNdef != null) {
+                val s = session
+                if (aid.contentEquals(NDEF_AID) && s != null) {
                     selectedFile = SelectedFile.NONE
                     Log.d(TAG, "SELECT NDEF Application → OK")
-                    onConnected?.invoke()
+                    s.onConnected()
                     SW_OK
                 } else {
                     SW_NOT_FOUND
@@ -127,7 +148,7 @@ class NdefHceService : HostApduService() {
     override fun onDeactivated(reason: Int) {
         Log.d(TAG, "onDeactivated reason=$reason ndefReadStarted=$ndefReadStarted")
         if (ndefReadStarted) {
-            onComplete?.invoke()
+            session?.onComplete()
         }
         selectedFile = SelectedFile.NONE
         ndefReadStarted = false
@@ -139,7 +160,8 @@ class NdefHceService : HostApduService() {
         val file: ByteArray = when (selectedFile) {
             SelectedFile.CC -> CC_FILE
             SelectedFile.NDEF -> {
-                val ndef = pendingNdef ?: return SW_NOT_FOUND
+                // Capture session once to avoid a TOCTOU race if it is cleared concurrently.
+                val ndef = session?.ndefBytes ?: return SW_NOT_FOUND
                 // NDEF file = 2-byte NLEN + NDEF message
                 byteArrayOf(
                     ((ndef.size shr 8) and 0xFF).toByte(),

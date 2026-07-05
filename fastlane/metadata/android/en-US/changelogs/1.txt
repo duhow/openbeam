@@ -8,3 +8,4 @@ Initial release.
 Fixes:
 - Removed duplicate app title shown outside the share dialog
 - NFC sharing no longer requires a physical tag — just tap devices together
+- Device no longer reads physical NFC tags while sharing is active

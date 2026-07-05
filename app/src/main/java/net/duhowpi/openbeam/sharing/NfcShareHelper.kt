@@ -24,8 +24,9 @@ import android.nfc.NfcAdapter
  * to restore normal tag-polling behaviour when sharing ends.
  *
  * [NdefHceService] is bound by the NFC subsystem when a reader selects the NDEF Application
- * AID; [startSharing] / [stopSharing] gate the content and callback via the service's
- * companion object so that HCE only responds while the activity is in the foreground.
+ * AID; [startSharing] / [stopSharing] gate the content and callbacks via a single atomic
+ * [NdefHceService.session] reference so that HCE only responds while the activity is in the
+ * foreground and the service never observes a partially-initialised state.
  */
 class NfcShareHelper(private val activity: Activity) {
 
@@ -52,9 +53,13 @@ class NfcShareHelper(private val activity: Activity) {
             onResult(NfcShareState.Unsupported)
             return
         }
-        NdefHceService.pendingNdef = message.toByteArray()
-        NdefHceService.onConnected = { onResult(NfcShareState.Writing) }
-        NdefHceService.onComplete  = { onResult(NfcShareState.Success) }
+        // Publish all session state atomically via a single volatile reference so that
+        // the service never sees a partial state (e.g. ndefBytes set but callbacks still null).
+        NdefHceService.session = NdefHceService.HceSession(
+            ndefBytes    = message.toByteArray(),
+            onConnected  = { onResult(NfcShareState.Writing) },
+            onComplete   = { onResult(NfcShareState.Success) },
+        )
 
         // Disable physical-tag polling while HCE is active.
         // FLAG_READER_NO_PLATFORM_SOUNDS with no technology flags (NFC_A/B/F/V) stops the
@@ -73,9 +78,8 @@ class NfcShareHelper(private val activity: Activity) {
     /** Restore normal NFC tag polling and clear HCE content. Call from Activity.onPause. */
     fun stopSharing() {
         adapter?.disableReaderMode(activity)
-        NdefHceService.pendingNdef   = null
-        NdefHceService.onConnected   = null
-        NdefHceService.onComplete    = null
+        // Clear atomically so the service never sees a session with null callbacks.
+        NdefHceService.session = null
     }
 }
 
