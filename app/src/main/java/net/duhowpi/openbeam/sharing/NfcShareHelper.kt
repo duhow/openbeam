@@ -1,9 +1,12 @@
 package net.duhowpi.openbeam.sharing
 
 import android.app.Activity
+import android.app.PendingIntent
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
+import android.os.Build
 
 /**
  * Manages NFC NDEF sharing via Host Card Emulation (HCE).
@@ -16,13 +19,20 @@ import android.nfc.NfcAdapter
  * NFC-capable reader — another Android device, iPhone (iOS 13+), or dedicated hardware —
  * to tap and read the NDEF content. No physical NFC tag is written.
  *
- * HCE operates in NFC card-emulation (listening) mode: the NFC controller waits for an
- * external reader to initiate contact and issue ISO 7816-4 APDU commands. Calling
- * [NfcAdapter.enableReaderMode] would switch the NFC controller into active-polling mode,
- * which generates its own RF field and prevents HCE from responding — especially when tapping
- * two Android phones together (RF collision). Therefore [startSharing] deliberately does NOT
- * call [NfcAdapter.enableReaderMode], leaving the controller in its default mode where card
- * emulation is fully active.
+ * **Preventing "read instead of share" on Android**
+ *
+ * By default, when the Android NFC stack detects a nearby tag or HCE card it dispatches
+ * ACTION_NDEF_DISCOVERED (or ACTION_TAG_DISCOVERED) to apps on this device. Without any
+ * suppression, this causes the sharing phone to simultaneously act as a reader — opening
+ * browsers, contacts, etc. — when it taps another phone.
+ *
+ * [NfcAdapter.enableReaderMode] can suppress this dispatch, but it may also disable card
+ * emulation on some chipsets/firmware, breaking HCE in the phone-to-phone direction.
+ *
+ * The correct solution is [NfcAdapter.enableForegroundDispatch]: it routes all incoming NFC
+ * tag intents to our activity's onNewIntent (where they are silently ignored) instead of
+ * the OS dispatcher, without touching the card-emulation path at all. HCE therefore remains
+ * fully active while the polling side-effect of reading is suppressed at the application layer.
  *
  * [NdefHceService] is bound by the NFC subsystem when a reader selects the NDEF Application
  * AID; [startSharing] / [stopSharing] gate the content and callbacks via a single atomic
@@ -42,7 +52,9 @@ class NfcShareHelper(private val activity: Activity) {
             activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
 
     /**
-     * Register [message] for HCE emulation so the next reader tap can receive it.
+     * Register [message] for HCE emulation so the next reader tap can receive it, and enable
+     * foreground dispatch so that any NFC tag discovered by this device is routed to our
+     * activity (where it is ignored) rather than dispatched OS-wide.
      * Should be called from Activity.onResume (paired with [stopSharing] in onPause).
      *
      * @param message NDEF message to emit when another device taps.
@@ -61,13 +73,38 @@ class NfcShareHelper(private val activity: Activity) {
             onComplete   = { onResult(NfcShareState.Success) },
         )
 
+        // Route all incoming NFC tag/NDEF intents to our activity instead of letting the OS
+        // dispatch them to browsers or other apps. Our activity's onNewIntent ignores these
+        // intents, so the sharing phone never acts as a reader. Unlike enableReaderMode,
+        // foreground dispatch does not affect the card-emulation path, so HCE remains active.
+        adapter?.enableForegroundDispatch(activity, buildNfcPendingIntent(), null, null)
+
         onResult(NfcShareState.Waiting)
     }
 
-    /** Clear HCE content. Call from Activity.onPause. */
+    /** Restore normal NFC dispatch and clear HCE content. Call from Activity.onPause. */
     fun stopSharing() {
+        adapter?.disableForegroundDispatch(activity)
         // Clear atomically so the service never sees a session with null callbacks.
         NdefHceService.session = null
+    }
+
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build a PendingIntent that brings our activity to the foreground when the NFC
+     * subsystem fires a tag-discovered intent via foreground dispatch.
+     * FLAG_MUTABLE is required on API 31+ so the system can add TAG/NDEF extras to the intent.
+     */
+    private fun buildNfcPendingIntent(): PendingIntent {
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val intent = Intent(activity, activity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(activity, 0, intent, flags)
     }
 }
 

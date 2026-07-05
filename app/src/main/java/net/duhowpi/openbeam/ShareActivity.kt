@@ -131,8 +131,10 @@ class ShareActivity : AppCompatActivity() {
     /** Forward any remaining share intents received while activity is on top (singleTop). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // NFC NDEF sharing is handled by NdefHceService (HCE); no NFC intents are dispatched
-        // to the activity. Only new ACTION_SEND intents can arrive here.
+        // NFC tag intents (ACTION_NDEF_DISCOVERED, ACTION_TAG_DISCOVERED) arrive here via
+        // foreground dispatch while HCE sharing is active. They are intentionally ignored:
+        // this device is the card emulator, not the reader.
+        // Only new ACTION_SEND intents would need further handling.
     }
 
     override fun onRequestPermissionsResult(
