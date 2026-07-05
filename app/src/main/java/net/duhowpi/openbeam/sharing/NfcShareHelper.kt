@@ -16,12 +16,14 @@ import android.nfc.NfcAdapter
  * NFC-capable reader — another Android device, iPhone (iOS 13+), or dedicated hardware —
  * to tap and read the NDEF content. No physical NFC tag is written.
  *
- * While sharing is active, [startSharing] calls [NfcAdapter.enableReaderMode] with
- * [NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS] and **no technology flags**. This tells
- * the NFC stack to stop polling for physical tags (Mifare, NTAG2xx, ISO-DEP, etc.)
- * without disabling HCE, so the device acts purely as a card emulator and will not
- * inadvertently read any tag brought near it. [stopSharing] calls [NfcAdapter.disableReaderMode]
- * to restore normal tag-polling behaviour when sharing ends.
+ * While sharing is active, [startSharing] calls [NfcAdapter.enableReaderMode] with all four
+ * NFC technology flags (NFC_A, NFC_B, NFC_F, NFC_V) plus [NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK]
+ * and [NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS]. This puts the NFC stack into reader mode for
+ * every tag type, routing any physical tag discovery to our no-op callback instead of the OS
+ * NDEF/TAG intent dispatch, so the device will not inadvertently open URLs or launch apps when a
+ * physical NFC tag (Mifare, NTAG2xx, ISO-DEP, etc.) is brought near it. HCE card emulation runs
+ * on an independent path in the NFC controller and remains active throughout. [stopSharing] calls
+ * [NfcAdapter.disableReaderMode] to restore normal tag-dispatch behaviour when sharing ends.
  *
  * [NdefHceService] is bound by the NFC subsystem when a reader selects the NDEF Application
  * AID; [startSharing] / [stopSharing] gate the content and callbacks via a single atomic
@@ -41,8 +43,8 @@ class NfcShareHelper(private val activity: Activity) {
             activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
 
     /**
-     * Register [message] for HCE emulation so the next reader tap can receive it, and disable
-     * physical-tag polling so the device behaves purely as a card emulator.
+     * Register [message] for HCE emulation so the next reader tap can receive it, and suppress
+     * physical-tag dispatch so the device behaves purely as a card emulator.
      * Should be called from Activity.onResume (paired with [stopSharing] in onPause).
      *
      * @param message NDEF message to emit when another device taps.
@@ -61,13 +63,23 @@ class NfcShareHelper(private val activity: Activity) {
             onComplete   = { onResult(NfcShareState.Success) },
         )
 
-        // Disable physical-tag polling while HCE is active.
-        // FLAG_READER_NO_PLATFORM_SOUNDS with no technology flags (NFC_A/B/F/V) stops the
-        // NFC stack from discovering tags without pausing card emulation (HCE). This prevents
-        // the device from reading Mifare/NTAG2xx/ISO-DEP tags placed near it during sharing.
+        // Suppress physical-tag dispatch while HCE is active.
+        // enableReaderMode with ALL technology flags (NFC_A/B/F/V) puts the NFC stack into
+        // reader mode for every tag type. Any physical tag (Mifare, NTAG2xx, ISO-DEP, FeliCa,
+        // ISO 15693) discovered during sharing is routed to our no-op callback instead of being
+        // dispatched via NDEF_DISCOVERED / TAG_DISCOVERED intents, so the OS will not open URLs
+        // or launch other apps. FLAG_READER_SKIP_NDEF_CHECK skips the slow NDEF-compatibility
+        // check on discovered tags (we ignore them anyway). FLAG_READER_NO_PLATFORM_SOUNDS
+        // suppresses the NFC discovery sound. HCE card emulation runs on an independent path
+        // in the NFC controller and is unaffected by reader mode.
         adapter?.enableReaderMode(
             activity,
-            { /* tag callback intentionally empty – we are the card, not the reader */ },
+            { /* physical tag discovered during sharing – intentionally ignored */ },
+            NfcAdapter.FLAG_READER_NFC_A or
+            NfcAdapter.FLAG_READER_NFC_B or
+            NfcAdapter.FLAG_READER_NFC_F or
+            NfcAdapter.FLAG_READER_NFC_V or
+            NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK or
             NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
             null,
         )
